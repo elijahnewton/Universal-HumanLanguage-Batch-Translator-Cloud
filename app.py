@@ -12,8 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "outputs"
 ALLOWED_EXTENSIONS = {"txt"}
-BATCH_SIZE = 30
-RATE_LIMIT = 1
+BATCH_SIZE = 15  # Down from 30
+RATE_LIMIT = 0.5  # Down from 1
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", str(25 * 1024 * 1024)))
