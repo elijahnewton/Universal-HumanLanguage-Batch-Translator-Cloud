@@ -10,3 +10,9 @@ Separated R2 Folders: Created distinct virtual directory paths for uploads (uplo
 No local persistent storage needed: The incoming file is processed, saved to R2 immediately, and downloaded if a resumption is needed. Temporary local files are safely cleaned up using a finally block to keep your container completely state-free.
 
 Resumption Support from R2: If an input file has already been processed or half-processed before, the app downloads both the original source file and the current translation progress directly from R2 to pick up where it left off.
+
+POST /translate: Uploads the file, saves it to Cloudflare R2, starts a background thread to begin processing, and instantly returns a task_id to the browser (taking less than 1 second). The user can now close the browser.
+
+Background Thread: Runs independently on the server, translating chunk by chunk and updating a global progress tracker.
+
+GET /status/<task_id>: An optional endpoint that your frontend can poll (if the browser is open) to show a progress bar. If the browser is closed, the server keeps working anyway.
