@@ -45,8 +45,13 @@ def get_r2_client():
     return client, bucket_name
 
 
-def r2_object_key(original_name: str) -> str:
-    return f"translated/{original_name}"
+# R2 paths separated into distinct virtual folders
+def get_r2_upload_key(filename: str) -> str:
+    return f"uploads/{filename}"
+
+
+def get_r2_output_key(filename: str) -> str:
+    return f"outputs/{filename}"
 
 
 def save_to_r2(local_path: Path, object_key: str) -> None:
@@ -156,32 +161,58 @@ def translate():
 
     filename = secure_filename(file.filename)
     input_path = UPLOAD_DIR / filename
+    
+    # Save file locally temporarily to run translation
     file.save(input_path)
+
+    # 1. Instantly backup original file to the 'uploads/' folder in R2
+    upload_r2_key = get_r2_upload_key(filename)
+    save_to_r2(input_path, upload_r2_key)
 
     output_filename = f"translated_{filename}"
     output_path = OUTPUT_DIR / output_filename
+    output_r2_key = get_r2_output_key(output_filename)
 
-    r2_key = r2_object_key(output_filename)
+    # 2. Pull down existing partial translations from 'outputs/' folder if any exist
     if not output_path.exists():
-        download_from_r2(output_path, r2_key)
+        download_from_r2(output_path, output_r2_key)
 
-    result = translate_file(input_path, output_path)
-    save_to_r2(output_path, r2_key)
+    try:
+        # Run the translation engine
+        result = translate_file(input_path, output_path)
+        
+        # 3. Save the final output to the 'outputs/' folder in R2
+        save_to_r2(output_path, output_r2_key)
 
-    return jsonify(
-        {
-            "filename": filename,
-            "translated_file": output_filename,
-            "result": result,
-        }
-    )
+        return jsonify(
+            {
+                "filename": filename,
+                "translated_file": output_filename,
+                "result": result,
+            }
+        )
+
+    finally:
+        # 4. Clean up local temporary storage to prevent Render OOM/disk full crashes
+        if input_path.exists():
+            input_path.unlink()
+        if output_path.exists():
+            output_path.unlink()
 
 
 @app.route("/download/<path:filename>")
 def download(filename):
-    path = OUTPUT_DIR / secure_filename(filename)
+    filename = secure_filename(filename)
+    path = OUTPUT_DIR / filename
+    output_r2_key = get_r2_output_key(filename)
+
+    # Fetch on-demand from R2 if it is missing from local container disk
     if not path.exists():
-        return jsonify({"error": "File not found"}), 404
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        success = download_from_r2(path, output_r2_key)
+        if not success:
+            return jsonify({"error": "File not found inside R2 storage"}), 404
+            
     return send_file(path, as_attachment=True)
 
 
