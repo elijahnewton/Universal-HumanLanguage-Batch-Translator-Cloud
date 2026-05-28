@@ -1,5 +1,7 @@
 import os
 import time
+import uuid
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -12,12 +14,17 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "outputs"
 ALLOWED_EXTENSIONS = {"txt"}
-BATCH_SIZE = 15  # Down from 30
-RATE_LIMIT = 0.5  # Down from 1
+BATCH_SIZE = 30
+RATE_LIMIT = 1
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", str(25 * 1024 * 1024)))
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-this-secret-key")
+
+# Global in-memory status tracker
+# In a multi-worker production environment, Redis/Database is preferred, 
+# but for a single Gunicorn worker setup on Render, a global dict works perfectly.
+TASKS = {}
 
 
 def allowed_file(filename: str) -> bool:
@@ -45,7 +52,6 @@ def get_r2_client():
     return client, bucket_name
 
 
-# R2 paths separated into distinct virtual folders
 def get_r2_upload_key(filename: str) -> str:
     return f"uploads/{filename}"
 
@@ -72,77 +78,69 @@ def download_from_r2(local_path: Path, object_key: str) -> bool:
         return False
 
 
-def translate_file(input_path: Path, output_path: Path) -> dict:
-    translator = GoogleTranslator(source="auto", target="lg")
+def async_translation_worker(task_id: str, filename: str, input_path: Path, output_path: Path, output_r2_key: str):
+    """Function runs entirely inside a background thread."""
+    try:
+        translator = GoogleTranslator(source="auto", target="lg")
 
-    with input_path.open("r", encoding="utf-8") as file:
-        all_phrases = [line.strip() for line in file if line.strip()]
+        with input_path.open("r", encoding="utf-8") as f:
+            all_phrases = [line.strip() for line in f if line.strip()]
 
-    total_phrases = len(all_phrases)
-    total_batches = (total_phrases + BATCH_SIZE - 1) // BATCH_SIZE
-    lines_already_done = 0
+        total_phrases = len(all_phrases)
+        lines_already_done = 0
 
-    if output_path.exists():
-        with output_path.open("r", encoding="utf-8") as file:
-            lines_already_done = sum(1 for _ in file)
+        if output_path.exists():
+            with output_path.open("r", encoding="utf-8") as f:
+                lines_already_done = sum(1 for _ in f)
 
-    phrases_to_translate = all_phrases[lines_already_done:]
-    translated_now = 0
-    status_messages = []
+        phrases_to_translate = all_phrases[lines_already_done:]
 
-    if not phrases_to_translate:
-        return {
+        if not phrases_to_translate:
+            TASKS[task_id] = {"status": "complete", "progress": 100, "translated_file": f"translated_{filename}"}
+            return
+
+        TASKS[task_id]["progress"] = int((lines_already_done / total_phrases) * 100)
+        translated_now = 0
+
+        for i in range(0, len(phrases_to_translate), BATCH_SIZE):
+            batch = phrases_to_translate[i : i + BATCH_SIZE]
+            translations = translator.translate_batch(batch)
+
+            with output_path.open("a", encoding="utf-8") as f:
+                for original, translated in zip(batch, translations):
+                    f.write(f"{original}\t{translated}\n")
+
+            translated_now += len(batch)
+            current_total_done = lines_already_done + translated_now
+            
+            # Update background task progress metrics
+            TASKS[task_id]["progress"] = int((current_total_done / total_phrases) * 100)
+            TASKS[task_id]["message"] = f"Translated {current_total_done}/{total_phrases} lines."
+
+            time.sleep(RATE_LIMIT)
+
+        # Finished translation, upload final result directly to Cloudflare R2
+        save_to_r2(output_path, output_r2_key)
+        TASKS[task_id] = {
             "status": "complete",
-            "total_lines": total_phrases,
-            "translated_lines": total_phrases,
-            "total_batches": total_batches,
-            "completed_batches": total_batches,
-            "messages": ["File already fully translated."],
-            "output_path": str(output_path),
+            "progress": 100,
+            "translated_file": f"translated_{filename}"
         }
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        TASKS[task_id] = {"status": "failed", "error": str(e), "progress": TASKS[task_id].get("progress", 0)}
 
-    status_messages.append(f"Starting translation from line {lines_already_done + 1}")
-    status_messages.append(f"Total lines to translate: {len(phrases_to_translate)}")
-    status_messages.append(f"Total batches to process: {(len(phrases_to_translate) + BATCH_SIZE - 1) // BATCH_SIZE}")
-
-    for i in range(0, len(phrases_to_translate), BATCH_SIZE):
-        batch = phrases_to_translate[i : i + BATCH_SIZE]
-        current_batch_num = (lines_already_done + i + len(batch) + BATCH_SIZE - 1) // BATCH_SIZE
-        status_messages.append(f"Translating batch {current_batch_num}/{total_batches} ({len(batch)} lines)...")
-
-        translations = translator.translate_batch(batch)
-
-        with output_path.open("a", encoding="utf-8") as file:
-            for original, translated in zip(batch, translations):
-                file.write(f"{original}\t{translated}\n")
-
-        translated_now += len(batch)
-        time.sleep(RATE_LIMIT)
-
-    translated_lines = lines_already_done + translated_now
-    completed_batches = (translated_lines + BATCH_SIZE - 1) // BATCH_SIZE
-
-    return {
-        "status": "complete",
-        "total_lines": total_phrases,
-        "translated_lines": translated_lines,
-        "total_batches": total_batches,
-        "completed_batches": completed_batches,
-        "messages": status_messages,
-        "output_path": str(output_path),
-    }
+    finally:
+        # Secure server clean up to completely eliminate storage footprints
+        if input_path.exists():
+            input_path.unlink()
+        if output_path.exists():
+            output_path.unlink()
 
 
 @app.route("/")
 def index():
     return render_template("index.html")
-
-
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "time": datetime.utcnow().isoformat() + "Z"})
 
 
 @app.route("/translate", methods=["POST"])
@@ -161,11 +159,9 @@ def translate():
 
     filename = secure_filename(file.filename)
     input_path = UPLOAD_DIR / filename
-    
-    # Save file locally temporarily to run translation
     file.save(input_path)
 
-    # 1. Instantly backup original file to the 'uploads/' folder in R2
+    # Offload input tracking file directly to R2 backup
     upload_r2_key = get_r2_upload_key(filename)
     save_to_r2(input_path, upload_r2_key)
 
@@ -173,31 +169,40 @@ def translate():
     output_path = OUTPUT_DIR / output_filename
     output_r2_key = get_r2_output_key(output_filename)
 
-    # 2. Pull down existing partial translations from 'outputs/' folder if any exist
+    # Recover any previous progress context from R2
     if not output_path.exists():
         download_from_r2(output_path, output_r2_key)
 
-    try:
-        # Run the translation engine
-        result = translate_file(input_path, output_path)
-        
-        # 3. Save the final output to the 'outputs/' folder in R2
-        save_to_r2(output_path, output_r2_key)
+    # Establish an asynchronous background tracking task ID
+    task_id = str(uuid.uuid4())
+    TASKS[task_id] = {
+        "status": "processing",
+        "progress": 0,
+        "message": "Initializing translation pipeline...",
+        "filename": filename
+    }
 
-        return jsonify(
-            {
-                "filename": filename,
-                "translated_file": output_filename,
-                "result": result,
-            }
-        )
+    # Spin up background execution loop separate from the request context
+    thread = threading.Thread(
+        target=async_translation_worker,
+        args=(task_id, filename, input_path, output_path, output_r2_key)
+    )
+    thread.start()
 
-    finally:
-        # 4. Clean up local temporary storage to prevent Render OOM/disk full crashes
-        if input_path.exists():
-            input_path.unlink()
-        if output_path.exists():
-            output_path.unlink()
+    # Instantly returns response! Gunicorn will never timeout. Browser can be shut off safely.
+    return jsonify({
+        "message": "Translation started in the background.",
+        "task_id": task_id
+    }), 202
+
+
+@app.route("/status/<task_id>", methods=["GET"])
+def get_status(task_id):
+    """Endpoint used by the client to check progress whenever they open the page."""
+    task = TASKS.get(task_id)
+    if not task:
+        return jsonify({"error": "Task not found"}), 404
+    return jsonify(task)
 
 
 @app.route("/download/<path:filename>")
@@ -206,7 +211,6 @@ def download(filename):
     path = OUTPUT_DIR / filename
     output_r2_key = get_r2_output_key(filename)
 
-    # Fetch on-demand from R2 if it is missing from local container disk
     if not path.exists():
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         success = download_from_r2(path, output_r2_key)
