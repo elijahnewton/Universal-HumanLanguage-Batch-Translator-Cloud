@@ -202,11 +202,24 @@
     const outputName = document.getElementById('outputName');
     const downloadLink = document.getElementById('downloadLink');
 
+    let pollInterval = null;
+
+    // Check if there's an ongoing background translation when the page loads
+    window.addEventListener('DOMContentLoaded', () => {
+      const activeTaskId = localStorage.getItem('active_translation_task');
+      if (activeTaskId) {
+        startPolling(activeTaskId);
+      }
+    });
+
     clearBtn.addEventListener('click', () => {
+      clearInterval(pollInterval);
+      localStorage.removeItem('active_translation_task');
       fileInput.value = '';
       status.textContent = 'Ready.';
       logOutput.textContent = 'No translation yet.';
       resultBox.classList.remove('visible');
+      translateBtn.disabled = false;
     });
 
     form.addEventListener('submit', async (event) => {
@@ -219,9 +232,10 @@
 
       const formData = new FormData();
       formData.append('file', file);
+      
       translateBtn.disabled = true;
-      status.textContent = 'Translating...';
-      logOutput.textContent = 'Processing request...';
+      status.textContent = 'Uploading and initializing...';
+      logOutput.textContent = 'Handing off file to server background worker...';
       resultBox.classList.remove('visible');
 
       try {
@@ -232,24 +246,71 @@
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Translation failed');
+          throw new Error(data.error || 'Failed to start translation pipeline.');
         }
 
-        sourceName.textContent = data.filename;
-        outputName.textContent = data.translated_file;
-        downloadLink.href = `/download/${encodeURIComponent(data.translated_file)}`;
-        resultBox.classList.add('visible');
+        // Save task ID to local storage so the window can be safely closed/reopened
+        localStorage.setItem('active_translation_task', data.task_id);
+        
+        // Begin tracking progress
+        startPolling(data.task_id);
 
-        const messages = data.result.messages || [];
-        logOutput.textContent = messages.join('\n');
-        status.textContent = `Finished. ${data.result.translated_lines}/${data.result.total_lines} lines translated.`;
       } catch (error) {
         status.textContent = error.message;
         logOutput.textContent = error.stack || error.message;
-      } finally {
         translateBtn.disabled = false;
       }
     });
+
+    function startPolling(taskId) {
+      clearInterval(pollInterval);
+      translateBtn.disabled = true;
+
+      // Poll the status endpoint every 2.5 seconds
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`/status/${taskId}`);
+          if (!response.ok) {
+            throw new Error('Could not find active task status on server.');
+          }
+          
+          const data = await response.json();
+
+          if (data.status === 'processing') {
+            status.textContent = `Translating... (${data.progress}%)`;
+            logOutput.textContent = `${data.message || 'Processing batches...'}\n\n[You can safely close this window. Progress is running permanently on the server]`;
+          } 
+          
+          else if (data.status === 'complete') {
+            clearInterval(pollInterval);
+            localStorage.removeItem('active_translation_task'); // Clear memory trace
+            
+            sourceName.textContent = data.filename || 'Source File';
+            outputName.textContent = data.translated_file;
+            downloadLink.href = `/download/${encodeURIComponent(data.translated_file)}`;
+            resultBox.classList.add('visible');
+            
+            status.textContent = `Finished! Translation 100% complete.`;
+            logOutput.textContent = `File completely compiled and safely backed up to Cloudflare R2 storage!`;
+            translateBtn.disabled = false;
+          } 
+          
+          else if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            localStorage.removeItem('active_translation_task');
+            status.textContent = 'Translation failed.';
+            logOutput.textContent = `Error: ${data.error}`;
+            translateBtn.disabled = false;
+          }
+
+        } catch (error) {
+          clearInterval(pollInterval);
+          status.textContent = 'Connection lost.';
+          logOutput.textContent = `Error polling update: ${error.message}\nRe-upload the file to attempt automated recovery.`;
+          translateBtn.disabled = false;
+        }
+      }, 2500);
+    }
   </script>
 </body>
 </html>
