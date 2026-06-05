@@ -32,7 +32,7 @@
     }
 
     .shell {
-      max-width: 980px;
+      max-width: 1100px;
       margin: 0 auto;
     }
 
@@ -54,8 +54,8 @@
 
     .grid {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 20px;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 24px;
       margin-top: 24px;
     }
 
@@ -64,6 +64,8 @@
       border: 1px solid var(--border);
       border-radius: 22px;
       padding: 20px;
+      display: flex;
+      flex-direction: column;
     }
 
     .selector-group {
@@ -84,9 +86,7 @@
       cursor: pointer;
     }
 
-    select:focus {
-      border-color: var(--accent);
-    }
+    select:focus { border-color: var(--accent); }
 
     .dropzone {
       border: 1.5px dashed rgba(56, 189, 248, 0.45);
@@ -116,16 +116,11 @@
       color: #02111f;
       background: linear-gradient(135deg, var(--accent), #7dd3fc);
       text-decoration: none;
+      text-align: center;
     }
 
-    button.secondary {
-      background: linear-gradient(135deg, #a7f3d0, var(--accent-2));
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    button.secondary { background: linear-gradient(135deg, #a7f3d0, var(--accent-2)); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
 
     pre {
       white-space: pre-wrap;
@@ -133,45 +128,82 @@
       background: rgba(2, 6, 23, 0.55);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 16px;
-      min-height: 220px;
-      margin: 0;
+      padding: 14px;
+      max-height: 140px;
+      margin: 8px 0 0 0;
       color: #dbeafe;
       overflow: auto;
+      font-size: 0.85rem;
     }
 
-    .status {
-      margin-top: 14px;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    .result {
-      margin-top: 16px;
-      display: none;
-    }
-
+    .status { margin-top: 14px; color: var(--muted); font-size: 0.95rem; }
+    .result { margin-top: 16px; display: none; }
     .result.visible { display: block; }
 
-    .meta {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-bottom: 14px;
+    /* New File History Menu Styles */
+    .history-title {
+      font-size: 1.2rem;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .meta div {
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.8);
+    .refresh-btn {
+      background: none;
       border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+    }
+    .refresh-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .file-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.25);
     }
 
-    .meta strong { display: block; margin-bottom: 4px; }
+    .file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .file-item:last-child { border-bottom: none; }
 
-    @media (max-width: 760px) {
+    .file-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-width: 70%;
+    }
+
+    .file-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-meta { font-size: 0.75rem; color: var(--muted); }
+
+    .dl-icon-btn {
+      font-size: 0.8rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
-      .meta { grid-template-columns: 1fr; }
       .selector-group { grid-template-columns: 1fr; }
     }
   </style>
@@ -180,12 +212,11 @@
   <div class="shell">
     <section class="hero">
       <h1>Batch Translator Pro</h1>
-      <p>Upload large files, pick your target languages, and close your tab. Your translation completes in the background directly into Cloudflare R2.</p>
+      <p>Upload large text collections, run background translations into R2 cloud pools, and access historical assets from any location configuration context.</p>
 
       <div class="grid">
         <div class="card">
           <form id="uploadForm">
-            
             <div class="selector-group">
               <label style="display:flex; flex-direction:column; gap:4px;">
                 <span style="font-size:0.85rem; color:var(--muted)">Source Language</span>
@@ -213,18 +244,29 @@
           </form>
           
           <div class="result" id="resultBox">
-            <div class="meta">
-              <div><strong>Source</strong><span id="sourceName">-</span></div>
-              <div><strong>Output</strong><span id="outputName">-</span></div>
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:14px; font-size:0.9rem;">
+              <strong>Active Run Complete:</strong> <span id="outputName">-</span>
             </div>
-            <a class="button" id="downloadLink" href="#" target="_blank" rel="noopener">Download translated file</a>
+            <a class="button" id="downloadLink" href="#" target="_blank" rel="noopener" style="display:block;">Download Right Now</a>
+          </div>
+
+          <div style="margin-top: auto; padding-top:20px;">
+            <strong style="font-size:0.9rem;">Worker Message Tracking Log</strong>
+            <pre id="logOutput">No active worker tracking.</pre>
           </div>
         </div>
 
         <div class="card">
-          <strong>Logs & System Updates</strong>
-          <p style="margin-top:8px;">The engine tracks independent time stamps per run. You can safely close or refresh your browser layout; progress runs permanently on the container host system.</p>
-          <pre id="logOutput">No active worker tracking.</pre>
+          <div class="history-title">
+            <strong>All Finished Files (R2 Cloud Storage)</strong>
+            <button class="refresh-btn" id="refreshHistoryBtn">Refresh</button>
+          </div>
+          <ul class="file-list" id="fileHistoryContainer">
+            <li style="padding:20px; text-align:center; color:var(--muted); font-size:0.9rem;">Loading history menu assets...</li>
+          </ul>
+          <p style="font-size: 0.8rem; color: var(--muted); margin-top: 12px; line-height: 1.4;">
+            💡 This table queries Cloudflare R2 directly. Anyone on your team can see and download completed files here, even if the translation was kicked off on a different computer or location context.
+          </p>
         </div>
       </div>
     </section>
@@ -240,15 +282,16 @@
     const resultBox = document.getElementById('resultBox');
     const translateBtn = document.getElementById('translateBtn');
     const clearBtn = document.getElementById('clearBtn');
-    const sourceName = document.getElementById('sourceName');
     const outputName = document.getElementById('outputName');
     const downloadLink = document.getElementById('downloadLink');
+    const fileHistoryContainer = document.getElementById('fileHistoryContainer');
+    const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
 
     let pollInterval = null;
 
-    // Initialize application languages on system start
     window.addEventListener('DOMContentLoaded', async () => {
       await loadLanguages();
+      await fetchCompletedFiles();
       
       const activeTaskId = localStorage.getItem('active_translation_task');
       if (activeTaskId) {
@@ -256,24 +299,49 @@
       }
     });
 
+    refreshHistoryBtn.addEventListener('click', fetchCompletedFiles);
+
     async function loadLanguages() {
       try {
         const response = await fetch('/languages');
         const languages = await response.json();
-        
-        // Loop and populate both dropdown option matrices
         Object.entries(languages).forEach(([name, code]) => {
           const optSrc = new Option(name.charAt(0).toUpperCase() + name.slice(1), code);
           const optTgt = new Option(name.charAt(0).toUpperCase() + name.slice(1), code);
-          
           sourceLangSelect.add(optSrc);
           targetLangSelect.add(optTgt);
         });
-
-        // Set Default configuration target to Luganda if present
         targetLangSelect.value = languages['luganda'] || 'lg';
       } catch (err) {
-        logOutput.textContent = "Failed to load supported languages from Google API.";
+        logOutput.textContent = "Failed to load dynamic languages frame mappings.";
+      }
+    }
+
+    async function fetchCompletedFiles() {
+      try {
+        const response = await fetch('/completed-files');
+        const files = await response.json();
+        
+        if (!files.length) {
+          fileHistoryContainer.innerHTML = `<li style="padding:20px; text-align:center; color:var(--muted); font-size:0.9rem;">No completed files found in output directory.</li>`;
+          return;
+        }
+
+        fileHistoryContainer.innerHTML = files.map(file => {
+          const date = new Date(file.last_modified).toLocaleDateString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'});
+          const sizeKb = (file.size_bytes / 1024).toFixed(1);
+          return `
+            <li class="file-item">
+              <div class="file-info">
+                <span class="file-name" title="${file.display_name}">${file.display_name}</span>
+                <span class="file-meta">${date} • ${sizeKb} KB</span>
+              </div>
+              <a class="button dl-icon-btn" href="/download/${encodeURIComponent(file.raw_name)}" target="_blank" rel="noopener">Download</a>
+            </li>
+          `;
+        }).join('');
+      } catch (err) {
+        fileHistoryContainer.innerHTML = `<li style="padding:20px; text-align:center; color:var(--danger); font-size:0.9rem;">Failed to populate directory cache layout view.</li>`;
       }
     }
 
@@ -306,19 +374,13 @@
       resultBox.classList.remove('visible');
 
       try {
-        const response = await fetch('/translate', {
-          method: 'POST',
-          body: formData,
-        });
+        const response = await fetch('/translate', { method: 'POST', body: formData });
         const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to start translation pipeline.');
-        }
+        if (!response.ok) throw new Error(data.error || 'Failed to initialize backend thread execution.');
 
         localStorage.setItem('active_translation_task', data.task_id);
         startPolling(data.task_id);
-
       } catch (error) {
         status.textContent = error.message;
         logOutput.textContent = error.stack || error.message;
@@ -333,7 +395,7 @@
       pollInterval = setInterval(async () => {
         try {
           const response = await fetch(`/status/${taskId}`);
-          if (!response.ok) throw new Error('Task trace missing from instance worker registry.');
+          if (!response.ok) throw new Error('Task trace missing from worker context array records.');
           
           const data = await response.json();
 
@@ -346,7 +408,6 @@
             clearInterval(pollInterval);
             localStorage.removeItem('active_translation_task');
             
-            sourceName.textContent = data.filename || 'Source File';
             outputName.textContent = data.translated_file;
             downloadLink.href = `/download/${encodeURIComponent(data.translated_file)}`;
             resultBox.classList.add('visible');
@@ -354,6 +415,9 @@
             status.textContent = `Finished! Translation 100% complete.`;
             logOutput.textContent = `File cleanly compiled and backed up to Cloudflare R2 storage!`;
             translateBtn.disabled = false;
+            
+            // Refresh storage table automatically on completion
+            await fetchCompletedFiles();
           } 
           
           else if (data.status === 'failed') {
@@ -363,7 +427,6 @@
             logOutput.textContent = `Error: ${data.error}`;
             translateBtn.disabled = false;
           }
-
         } catch (error) {
           clearInterval(pollInterval);
           status.textContent = 'Connection lost.';
