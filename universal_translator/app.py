@@ -225,6 +225,49 @@ def download(filename):
             
     return send_file(path, as_attachment=True)
 
+@app.route("/completed-files", methods=["GET"])
+def list_completed_files():
+    """Queries Cloudflare R2 to return a list of all files inside the outputs folder."""
+    client, bucket_name = get_r2_client()
+    if client is None:
+        return jsonify({"error": "Storage client configuration missing"}), 500
+        
+    try:
+        # List objects within the outputs/ virtual directory
+        response = client.list_objects_v2(Bucket=bucket_name, Prefix="outputs/")
+        
+        file_list = []
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                key = obj["Key"]
+                # Skip the root prefix directory itself if empty
+                if key == "outputs/":
+                    continue
+                
+                # Extract clean filename out of outputs/translated_20260603173000_data.txt
+                raw_filename = key.replace("outputs/", "")
+                
+                # Strip out internal system timestamp if present for clean UI display
+                display_name = raw_filename.replace("translated_", "")
+                if "_" in display_name and display_name.split("_")[0].isdigit():
+                    # Removes the '20260603173000_' prefix from the display string
+                    display_name = display_name.split("_", 1)[1]
+
+                file_list.append({
+                    "raw_name": raw_filename,
+                    "display_name": display_name,
+                    "size_bytes": obj["Size"],
+                    "last_modified": obj["LastModified"].isoformat()
+                })
+        
+        # Sort files: Newest first
+        file_list.sort(key=lambda x: x["last_modified"], reverse=True)
+        return jsonify(file_list)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
