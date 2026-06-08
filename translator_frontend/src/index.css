@@ -1,0 +1,567 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-workspace: #030712;
+  --surface-card: #0b0f19;
+  --surface-card-hover: #111827;
+  --input-fill: #1f2937;
+  --text-primary: #f9fafb;
+  --text-muted: #9ca3af;
+  --color-accent-blue: #38bdf8;
+  --color-accent-blue-glow: rgba(56, 189, 248, 0.15);
+  --color-accent-green: #10b981;
+  --color-accent-green-glow: rgba(16, 185, 129, 0.15);
+  --border-element: rgba(255, 255, 255, 0.06);
+  --border-element-active: rgba(56, 189, 248, 0.4);
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-workspace);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  line-height: 1.5;
+  background-image: 
+    radial-gradient(circle at 10% 12%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 88%, rgba(16, 185, 129, 0.05) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+
+/* Base Structural Application Container Layout Shell */
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Header Text Alignments */
+.app-header {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.app-header h1 {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #ffffff 30%, #9ca3af 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 12px;
+}
+
+.app-header p {
+  color: var(--text-muted);
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Core Multi-Module Grid Configuration - Mobile-First Default Blueprint Stack layout */
+.app-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+/* Desktop Scale Breakpoint overrides */
+@media (min-width: 868px) {
+  .app-grid {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 24px;
+  }
+}
+
+/* Generic Modular Application Card Base */
+.app-card {
+  background-color: var(--surface-card);
+  border: 1px solid var(--border-element);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  transition: var(--transition-smooth);
+}
+
+@media (min-width: 640px) {
+  .app-card {
+    padding: 28px;
+  }
+}
+
+/* Dropdowns and Input Structures Configuration Layout Frame */
+.interactive-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.language-selector-group {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 480px) {
+  .language-selector-group {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.language-selector-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.language-selector-group span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+select {
+  background-color: var(--input-fill);
+  color: var(--text-primary);
+  border: 1px solid var(--border-element);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+}
+
+select:focus {
+  border-color: var(--border-element-active);
+  box-shadow: 0 0 0 3px var(--color-accent-blue-glow);
+}
+
+/* File Dropzone Workspace Area Rules Matrix */
+.dropzone-wrapper {
+  position: relative;
+  border: 1.5px dashed rgba(56, 189, 248, 0.3);
+  background-color: rgba(3, 7, 18, 0.4);
+  border-radius: 14px;
+  padding: 32px 16px;
+  transition: var(--transition-smooth);
+}
+
+.dropzone-wrapper:hover {
+  border-color: var(--color-accent-blue);
+  background-color: rgba(56, 189, 248, 0.02);
+}
+
+.dropzone-wrapper.has-file {
+  border-color: var(--color-accent-green);
+  background-color: rgba(16, 185, 129, 0.02);
+}
+
+.dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.dropzone-content svg {
+  color: var(--color-accent-blue);
+  transition: var(--transition-smooth);
+}
+
+.dropzone-wrapper.has-file .dropzone-content svg {
+  color: var(--color-accent-green);
+}
+
+.dropzone-content input[type="file"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Action Control Components Action Bars Layout */
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+@media (min-width: 480px) {
+  .form-actions {
+    flex-direction: row;
+  }
+}
+
+button, a.btn-success-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-blue) 0%, #0284c7 100%);
+  color: #030712;
+  flex: 1;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-element);
+}
+
+.btn-secondary:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: var(--text-muted);
+}
+
+/* High-Performance Modern Progress Visualization Analytics Frame Layout */
+.progress-analysis-container {
+  margin-top: 24px;
+  background-color: rgba(3, 7, 18, 0.5);
+  border: 1px solid var(--border-element);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.progress-metrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.live-pulse-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-accent-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-pulse-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background-color: var(--color-accent-blue);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.percentage-counter {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--color-accent-blue);
+}
+
+.progress-track-bar {
+  width: 100%;
+  height: 6px;
+  background-color: var(--input-fill);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-blue), #60a5fa);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.1, 0.8, 0.2, 1);
+}
+
+.status-label-bar {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Completion Alert Element Box Wrappers */
+.completion-alert-box {
+  margin-top: 20px;
+  background-color: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.alert-header {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+
+.alert-header strong {
+  display: block;
+  color: var(--color-accent-green);
+  margin-bottom: 2px;
+}
+
+.alert-header span {
+  color: var(--text-muted);
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.btn-success-download {
+  background: linear-gradient(135deg, var(--color-accent-green) 0%, #047857 100%);
+  color: #030712;
+  width: 100%;
+}
+
+.btn-success-download:hover {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Terminal Execution View Logging Blocks */
+.terminal-logging-workspace {
+  margin-top: 24px;
+}
+
+.terminal-logging-workspace h5 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+pre {
+  background-color: rgba(3, 7, 18, 0.8);
+  border: 1px solid var(--border-element);
+  border-radius: 12px;
+  padding: 14px;
+  color: #93c5fd;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Archive Storage Ledger Panel Layout Mappings Context Area B */
+.history-header-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.history-header-wrapper h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-refresh {
+  background: none;
+  border: 1px solid var(--border-element);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-refresh:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--color-accent-blue);
+  background-color: rgba(56, 189, 248, 0.02);
+}
+
+.ledger-scroll-viewport {
+  border: 1px solid var(--border-element);
+  border-radius: 14px;
+  background-color: rgba(3, 7, 18, 0.3);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.empty-state-fallback {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-state-fallback svg {
+  color: var(--input-fill);
+}
+
+.empty-state-fallback p {
+  font-size: 0.9rem;
+  max-width: 260px;
+}
+
+.ledger-structured-list {
+  list-style: none;
+}
+
+.ledger-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid var(--border-element);
+  transition: var(--transition-smooth);
+  gap: 16px;
+}
+
+.ledger-item-row:last-child {
+  border-bottom: none;
+}
+
+.ledger-item-row:hover {
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.item-meta-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 65%;
+}
+
+.item-display-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-structural-subtext {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn-table-download {
+  background-color: var(--input-fill);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid var(--border-element);
+  transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.btn-table-download:hover {
+  background-color: rgba(56, 189, 248, 0.05);
+  border-color: var(--color-accent-blue);
+  color: var(--color-accent-blue);
+}
+
+/* Structurally Styled Required System Credits Footer Element */
+.app-footer {
+  text-align: center;
+  padding: 24px 0 8px;
+  border-top: 1px solid var(--border-element);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-github-link {
+  color: var(--color-accent-blue);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: var(--transition-smooth);
+}
+
+.footer-github-link:hover {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* Basic Functional CSS Utility Keyframes Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.9); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
