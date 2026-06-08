@@ -21,9 +21,6 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", str(25 * 1024 * 1024)))
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-this-secret-key")
 
-# Global in-memory status tracker
-# In a multi-worker production environment, Redis/Database is preferred, 
-# but for a single Gunicorn worker setup on Render, a global dict works perfectly.
 TASKS = {}
 
 
@@ -78,10 +75,11 @@ def download_from_r2(local_path: Path, object_key: str) -> bool:
         return False
 
 
-def async_translation_worker(task_id: str, filename: str, input_path: Path, output_path: Path, output_r2_key: str):
-    """Function runs entirely inside a background thread."""
+def async_translation_worker(task_id: str, filename: str, input_path: Path, output_path: Path, output_r2_key: str, source_lang: str, target_lang: str):
+    """Function runs entirely inside a background thread with dynamic languages."""
     try:
-        translator = GoogleTranslator(source="auto", target="lg")
+        # Dynamically set source and target language codes
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
 
         with input_path.open("r", encoding="utf-8") as f:
             all_phrases = [line.strip() for line in f if line.strip()]
@@ -113,13 +111,11 @@ def async_translation_worker(task_id: str, filename: str, input_path: Path, outp
             translated_now += len(batch)
             current_total_done = lines_already_done + translated_now
             
-            # Update background task progress metrics
             TASKS[task_id]["progress"] = int((current_total_done / total_phrases) * 100)
             TASKS[task_id]["message"] = f"Translated {current_total_done}/{total_phrases} lines."
 
             time.sleep(RATE_LIMIT)
 
-        # Finished translation, upload final result directly to Cloudflare R2
         save_to_r2(output_path, output_r2_key)
         TASKS[task_id] = {
             "status": "complete",
@@ -131,7 +127,6 @@ def async_translation_worker(task_id: str, filename: str, input_path: Path, outp
         TASKS[task_id] = {"status": "failed", "error": str(e), "progress": TASKS[task_id].get("progress", 0)}
 
     finally:
-        # Secure server clean up to completely eliminate storage footprints
         if input_path.exists():
             input_path.unlink()
         if output_path.exists():
@@ -141,6 +136,16 @@ def async_translation_worker(task_id: str, filename: str, input_path: Path, outp
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/languages", methods=["GET"])
+def get_languages():
+    """Returns a dictionary of supported languages from deep_translator."""
+    try:
+        langs = GoogleTranslator().get_supported_languages(as_dict=True)
+        return jsonify(langs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/translate", methods=["POST"])
@@ -154,14 +159,20 @@ def translate():
     if not allowed_file(file.filename):
         return jsonify({"error": "Only .txt files are supported"}), 400
 
+    # Read selected language codes from user submission
+    source_lang = request.form.get("source_lang", "auto")
+    target_lang = request.form.get("target_lang", "lg")
+
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    filename = secure_filename(file.filename)
+    # Prefixing filename with a timestamp to prevent multi-user overwrites
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    filename = f"{timestamp}_{secure_filename(file.filename)}"
+    
     input_path = UPLOAD_DIR / filename
     file.save(input_path)
 
-    # Offload input tracking file directly to R2 backup
     upload_r2_key = get_r2_upload_key(filename)
     save_to_r2(input_path, upload_r2_key)
 
@@ -169,27 +180,23 @@ def translate():
     output_path = OUTPUT_DIR / output_filename
     output_r2_key = get_r2_output_key(output_filename)
 
-    # Recover any previous progress context from R2
     if not output_path.exists():
         download_from_r2(output_path, output_r2_key)
 
-    # Establish an asynchronous background tracking task ID
     task_id = str(uuid.uuid4())
     TASKS[task_id] = {
         "status": "processing",
         "progress": 0,
-        "message": "Initializing translation pipeline...",
-        "filename": filename
+        "message": "Initializing multilingual pipeline...",
+        "filename": file.filename  # Keep clean name for UI presentation
     }
 
-    # Spin up background execution loop separate from the request context
     thread = threading.Thread(
         target=async_translation_worker,
-        args=(task_id, filename, input_path, output_path, output_r2_key)
+        args=(task_id, filename, input_path, output_path, output_r2_key, source_lang, target_lang)
     )
     thread.start()
 
-    # Instantly returns response! Gunicorn will never timeout. Browser can be shut off safely.
     return jsonify({
         "message": "Translation started in the background.",
         "task_id": task_id
@@ -198,7 +205,6 @@ def translate():
 
 @app.route("/status/<task_id>", methods=["GET"])
 def get_status(task_id):
-    """Endpoint used by the client to check progress whenever they open the page."""
     task = TASKS.get(task_id)
     if not task:
         return jsonify({"error": "Task not found"}), 404
@@ -218,6 +224,49 @@ def download(filename):
             return jsonify({"error": "File not found inside R2 storage"}), 404
             
     return send_file(path, as_attachment=True)
+
+@app.route("/completed-files", methods=["GET"])
+def list_completed_files():
+    """Queries Cloudflare R2 to return a list of all files inside the outputs folder."""
+    client, bucket_name = get_r2_client()
+    if client is None:
+        return jsonify({"error": "Storage client configuration missing"}), 500
+        
+    try:
+        # List objects within the outputs/ virtual directory
+        response = client.list_objects_v2(Bucket=bucket_name, Prefix="outputs/")
+        
+        file_list = []
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                key = obj["Key"]
+                # Skip the root prefix directory itself if empty
+                if key == "outputs/":
+                    continue
+                
+                # Extract clean filename out of outputs/translated_20260603173000_data.txt
+                raw_filename = key.replace("outputs/", "")
+                
+                # Strip out internal system timestamp if present for clean UI display
+                display_name = raw_filename.replace("translated_", "")
+                if "_" in display_name and display_name.split("_")[0].isdigit():
+                    # Removes the '20260603173000_' prefix from the display string
+                    display_name = display_name.split("_", 1)[1]
+
+                file_list.append({
+                    "raw_name": raw_filename,
+                    "display_name": display_name,
+                    "size_bytes": obj["Size"],
+                    "last_modified": obj["LastModified"].isoformat()
+                })
+        
+        # Sort files: Newest first
+        file_list.sort(key=lambda x: x["last_modified"], reverse=True)
+        return jsonify(file_list)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
