@@ -1,0 +1,61 @@
+Universal HumanLanguage Batch Translator Source-Available License 1.0
+
+Copyright (c) Elijah Newton.
+All rights reserved except as expressly granted in this License.
+
+1. Definitions
+
+"Project" means the Universal HumanLanguage Batch Translator Cloud repository and its associated source code, documentation, and related materials distributed by the copyright holder.
+
+"You" means any individual or legal entity exercising permissions under this License.
+
+2. Granted Permissions (Non-Commercial)
+
+Subject to the conditions in this License, You are granted a worldwide, royalty-free, non-exclusive, revocable license to:
+
+a) view and read the Project source code;
+b) use the Project for personal and internal non-commercial purposes;
+c) modify the Project for personal and internal non-commercial purposes; and
+d) copy and redistribute the original or modified Project for non-commercial purposes only.
+
+3. Conditions
+
+If You redistribute the Project, whether modified or unmodified, You must:
+
+a) include a copy of this License;
+b) retain all copyright, attribution, and notice statements; and
+c) clearly identify any modifications You made, including that changes were made and the date of change where practical.
+
+Derivative works must retain attribution to Elijah Newton as the original copyright holder.
+
+4. Reserved Rights and Restrictions
+
+The following rights are reserved exclusively to the copyright holder unless separately authorized in writing:
+
+a) all commercial use of the Project or derivative works;
+b) all commercial distribution of the Project or derivative works;
+c) all SaaS, hosted, managed-service, API, or other monetized deployment/use of the Project or derivative works;
+d) relicensing, sublicensing, or licensing of derivative works under other terms; and
+e) authority to approve, reject, or define derivative licensing terms.
+
+No ownership rights in the original Project are transferred by this License.
+
+5. Branding and Trademarks
+
+This License does not grant any right, title, or interest in any name, logo, trademark, service mark, trade dress, or branding associated with the Project. All such branding and trademark rights are reserved.
+
+6. Termination
+
+Any use not expressly permitted by this License, or failure to comply with its conditions, automatically terminates Your rights under this License.
+
+7. Disclaimer of Warranty
+
+THE PROJECT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+8. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE PROJECT OR THE USE OR OTHER DEALINGS IN THE PROJECT.
+
+9. Source-Available Notice
+
+This License imposes non-commercial restrictions and reserves exclusive control over commercial use, derivative licensing, and relicensing to the copyright holder. Accordingly, it is a source-available license and is not an OSI-approved open-source license.

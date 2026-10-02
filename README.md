@@ -293,4 +293,21 @@ docker logs -f multilingual_translator_app
 * **Cause:** Pacing problems with Google translation wrappers if `RATE_LIMIT` boundaries break down.
 * **Resolution:** Ensure the internal `RATE_LIMIT` constant stays set to a minimum of `1` second or greater whenever executing dense batch chunks containing over `30` blocks.
 
-```
+---
+
+## Contributing
+
+Contributions are welcome and appreciated. You can help by contributing code, documentation improvements, tests, bug reports, feature ideas, and financial support through GitHub.
+
+If you want to contribute, please start by reviewing open issues, proposing changes, and opening a pull request with clear context for your update. Thoughtful feedback and collaborative review are always welcome.
+
+## Credits
+
+* **Project Author and Maintainer:** Elijah Newton
+* **Inspiration:** Mike Aheebwa — https://github.com/AheebwaMike
+
+## License
+
+This project is source-available under the custom license in the root `LICENSE` file. The license allows viewing, personal use, modification, and non-commercial redistribution under its stated terms, while reserving commercial rights and derivative licensing authority to the copyright holder unless separately authorized in writing.
+
+Because those restrictions reserve exclusive control over commercial use and derivatives/relicensing, this is **not** an OSI-approved open-source license.
